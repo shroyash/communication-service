@@ -8,21 +8,16 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
-
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/ws/**"))
-
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/webrtc/**", "/ws/**")) // handshake endpoints
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**", "/health","/ws/**").permitAll()
+                        .requestMatchers("/actuator/**", "/health").permitAll()
+                        .requestMatchers("/webrtc/**", "/ws/**").authenticated()
                         .anyRequest().authenticated()
                 )
-
                 .httpBasic(Customizer.withDefaults());
-
         return http.build();
     }
 }
