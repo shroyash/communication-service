@@ -24,7 +24,7 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 token = authHeader.substring(7);
             } else {
-                Cookie cookie = WebUtils.getCookie(servlet, "access_token");
+                Cookie cookie = WebUtils.getCookie(servlet, "jwt");
                 if (cookie != null) token = cookie.getValue();
             }
             if (token == null || token.isBlank()) return false;

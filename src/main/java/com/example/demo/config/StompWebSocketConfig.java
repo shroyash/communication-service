@@ -1,5 +1,7 @@
 package com.example.demo.config;
 
+import com.example.demo.websocket.CustomHandshakeHandler;
+import com.example.demo.websocket.JwtHandshakeInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -21,6 +23,8 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
+                .addInterceptors(new JwtHandshakeInterceptor()) // 🔐 JWT check
+                .setHandshakeHandler(new CustomHandshakeHandler()) // 🔐 Principal
                 .withSockJS();
     }
 }

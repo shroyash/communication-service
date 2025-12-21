@@ -1,47 +1,37 @@
 package com.example.demo.service;
 
-
+import com.example.demo.model.ChatMessage;
+import com.example.demo.model.MessageType;
 import com.example.demo.model.WebRtcMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
+@RequiredArgsConstructor
 public class WebRtcHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SimpMessagingTemplate messagingTemplate;
 
-    // Map userId -> WebSocketSession
     private final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
-
-    // Map appointmentId -> Set<userId>
-    private final Map<String, Set<String>> rooms = new ConcurrentHashMap<>();
-
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        log.info("WebRTC connection established: {}", session.getId());
-    }
+    private final Map<Long, Set<String>> rooms = new ConcurrentHashMap<>();
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         WebRtcMessage msg = objectMapper.readValue(message.getPayload(), WebRtcMessage.class);
 
-        // Get user from Principal set by handshake handler
-        String userId = Optional.ofNullable(session.getPrincipal())
-                .map(java.security.Principal::getName)
-                .orElse(null);
-
-        if (userId == null) {
-            log.warn("Unauthenticated session tried to send signaling");
-            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Not authenticated"));
-            return;
+        // Use senderId from frontend or fallback
+        String userId = msg.getSenderId();
+        if (userId == null || userId.isEmpty()) {
+            userId = "anonymous";
         }
-
-        // server sets senderId reliably (do not trust client)
         msg.setSenderId(userId);
         userSessions.put(userId, session);
 
@@ -49,42 +39,63 @@ public class WebRtcHandler extends TextWebSocketHandler {
                 msg.getType(), msg.getAppointmentId(), msg.getSenderId(), msg.getTargetId());
 
         switch (msg.getType()) {
-            case "join" -> handleJoin(msg);
-            case "offer", "answer", "ice" -> forwardToTarget(msg);
+            case JOIN -> handleJoin(msg);
+            case OFFER, ANSWER, ICE -> forwardToTarget(msg);
             default -> log.warn("Unknown signaling type: {}", msg.getType());
         }
     }
 
     private void handleJoin(WebRtcMessage msg) {
         rooms.putIfAbsent(msg.getAppointmentId(), ConcurrentHashMap.newKeySet());
-        rooms.get(msg.getAppointmentId()).add(msg.getSenderId());
-        log.info("User {} joined room {}", msg.getSenderId(), msg.getAppointmentId());
+        Set<String> users = rooms.get(msg.getAppointmentId());
+
+        if (users.add(msg.getSenderId())) {
+            ChatMessage joinMsg = ChatMessage.builder()
+                    .appointmentId(msg.getAppointmentId())
+                    .senderId("SYSTEM")
+                    .content(msg.getSenderId() + " joined the appointment")
+                    .type(MessageType.NOTIFICATION)
+                    .timestamp(Instant.now())
+                    .build();
+            messagingTemplate.convertAndSend("/topic/appointment." + msg.getAppointmentId(), joinMsg);
+        }
     }
 
-    private void forwardToTarget(WebRtcMessage msg) {
+    private void forwardToTarget(WebRtcMessage msg) throws Exception {
         String target = msg.getTargetId();
-        if (target == null) {
-            log.warn("No target specified for message: {}", msg);
-            return;
-        }
+        if (target == null) return;
+
         WebSocketSession targetSession = userSessions.get(target);
         if (targetSession != null && targetSession.isOpen()) {
-            try {
-                targetSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
-                log.info("Forwarded {} from {} to {}", msg.getType(), msg.getSenderId(), target);
-            } catch (Exception e) {
-                log.error("Failed to forward to target {}", target, e);
-            }
-        } else {
-            log.warn("Target {} not connected", target);
+            targetSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        // remove session from userSessions and rooms
-        userSessions.values().removeIf(s -> s.getId().equals(session.getId()));
-        rooms.values().forEach(set -> set.removeIf(uid -> userSessions.get(uid) == null));
-        log.info("WebRTC session closed: {} status={}", session.getId(), status);
+        String disconnectedUser = null;
+        for (Map.Entry<String, WebSocketSession> entry : userSessions.entrySet()) {
+            if (entry.getValue().getId().equals(session.getId())) {
+                disconnectedUser = entry.getKey();
+                userSessions.remove(entry.getKey());
+                break;
+            }
+        }
+
+        if (disconnectedUser != null) {
+            String finalDisconnectedUser = disconnectedUser;
+            rooms.forEach((appointmentId, users) -> {
+                if (users.remove(finalDisconnectedUser)) {
+                    ChatMessage leaveMsg = ChatMessage.builder()
+                            .appointmentId(appointmentId)
+                            .senderId("SYSTEM")
+                            .content(finalDisconnectedUser + " left the appointment")
+                            .type(MessageType.NOTIFICATION)
+                            .timestamp(Instant.now())
+                            .build();
+                    messagingTemplate.convertAndSend("/topic/appointment." + appointmentId, leaveMsg);
+                }
+            });
+        }
     }
 }
