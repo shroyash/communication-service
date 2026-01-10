@@ -23,8 +23,8 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
-                .addInterceptors(new JwtHandshakeInterceptor()) // 🔐 JWT check
-                .setHandshakeHandler(new CustomHandshakeHandler()) // 🔐 Principal
+                .addInterceptors(new JwtHandshakeInterceptor())
+                .setHandshakeHandler(new CustomHandshakeHandler())
                 .withSockJS();
     }
 }
