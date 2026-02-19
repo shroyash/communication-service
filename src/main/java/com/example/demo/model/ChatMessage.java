@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -26,10 +27,10 @@ public class ChatMessage {
     private Long appointmentId;
 
     @Column(nullable = false)
-    private String senderId;
+    private UUID senderId;
 
     @Column
-    private String receiverId;
+    private UUID receiverId;
 
     @Column(nullable = false, columnDefinition = "text")
     private String content;

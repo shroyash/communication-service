@@ -1,48 +1,43 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.ChatMessage;
-import com.example.demo.service.ChatService;
+import com.example.demo.repository.ChatMessageRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
-@Controller
+@RestController
 @RequiredArgsConstructor
-@Slf4j
 public class ChatController {
 
-    private final ChatService chatService;
+    private final ChatMessageRepository repository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/chat.send")
-    public void send(ChatMessage incoming, Principal principal) {
-        if (principal == null) return;
-        // Server trusts the Principal, not client-provided senderId
-        incoming.setSenderId(principal.getName());
-        chatService.saveAndBroadcast(incoming);
+    public void sendMessage(ChatMessage message, SimpMessageHeaderAccessor headerAccessor) {
+
+        String userId = (String) headerAccessor.getSessionAttributes().get("userId");
+        if (userId == null) throw new IllegalArgumentException("User not authenticated");
+
+        message.setSenderId(UUID.fromString(userId));
+        message.setTimestamp(Instant.now());
+
+        ChatMessage saved = repository.save(message);
+
+        messagingTemplate.convertAndSend(
+                "/topic/appointment." + saved.getAppointmentId(),
+                saved
+        );
     }
-    @GetMapping("/{appointmentId}/messages")
-    public ResponseEntity<List<ChatMessage>> getMessages(
-            @PathVariable Long appointmentId,
-            @RequestHeader(value = "userId", required = false) String userId
-    ) {
-        log.info("📜 GET message history request: appointmentId={}, userId={}",
-                appointmentId, userId);
 
-        // TODO: Add authorization check
-        // Verify that userId is either the doctor or patient in this appointment
-        List<ChatMessage> messages = chatService.getMessageHistory(appointmentId);
-
-        log.info("✅ Returning {} messages for appointment {}",
-                messages.size(), appointmentId);
-
-        return ResponseEntity.ok(messages);
+    @GetMapping("/api/appointments/{id}/messages")
+    public List<ChatMessage> getMessages(@PathVariable Long id) {
+        return repository.findByAppointmentIdOrderByTimestampAsc(id);
     }
 }
