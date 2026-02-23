@@ -21,7 +21,6 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(ChatMessage message, SimpMessageHeaderAccessor headerAccessor) {
-
         String userId = (String) headerAccessor.getSessionAttributes().get("userId");
         if (userId == null) throw new IllegalArgumentException("User not authenticated");
 
@@ -36,7 +35,9 @@ public class ChatController {
         );
     }
 
-    @GetMapping("/api/appointments/{id}/messages")
+    // KEY FIX: path must match what the gateway routes as /api/communication/**
+    // Frontend calls: /api/communication/appointments/{id}/messages
+    @GetMapping("/api/communication/appointments/{id}/messages")
     public List<ChatMessage> getMessages(@PathVariable Long id) {
         return repository.findByAppointmentIdOrderByTimestampAsc(id);
     }

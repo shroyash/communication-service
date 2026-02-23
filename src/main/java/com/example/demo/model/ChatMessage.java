@@ -26,10 +26,10 @@ public class ChatMessage {
     @Column(nullable = false)
     private Long appointmentId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "uuid")
     private UUID senderId;
 
-    @Column
+    @Column(columnDefinition = "uuid")
     private UUID receiverId;
 
     @Column(nullable = false, columnDefinition = "text")

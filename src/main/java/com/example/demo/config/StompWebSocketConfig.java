@@ -13,21 +13,25 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @RequiredArgsConstructor
 public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final AuthChannelInterceptor interceptor;
+    private final AuthChannelInterceptor authChannelInterceptor;
+    private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic");
         registry.setApplicationDestinationPrefixes("/app");
     }
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .withSockJS();
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(jwtHandshakeInterceptor);
+        // No .withSockJS() — frontend uses native WebSocket (wss://)
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(interceptor);
+        registration.interceptors(authChannelInterceptor);
     }
 }

@@ -39,7 +39,11 @@ public class JwtUtil {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            return claims.getSubject();
+
+            // FIX: extract "id" claim, not subject
+            Object id = claims.get("id");
+            return id != null ? id.toString() : null;
+
         } catch (JwtException e) {
             return null;
         }
