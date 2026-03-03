@@ -27,7 +27,6 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .addInterceptors(jwtHandshakeInterceptor);
-        // No .withSockJS() — frontend uses native WebSocket (wss://)
     }
 
     @Override

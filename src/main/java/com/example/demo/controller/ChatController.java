@@ -35,8 +35,7 @@ public class ChatController {
         );
     }
 
-    // KEY FIX: path must match what the gateway routes as /api/communication/**
-    // Frontend calls: /api/communication/appointments/{id}/messages
+
     @GetMapping("/api/communication/appointments/{id}/messages")
     public List<ChatMessage> getMessages(@PathVariable Long id) {
         return repository.findByAppointmentIdOrderByTimestampAsc(id);
