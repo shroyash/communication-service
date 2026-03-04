@@ -1,14 +1,14 @@
 package com.example.demo.controller;
 
+import com.example.demo.helper.WebSocketAuthHelper;
 import com.example.demo.model.ChatMessage;
-import com.example.demo.repository.ChatMessageRepository;
+import com.example.demo.service.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,28 +16,20 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ChatController {
 
-    private final ChatMessageRepository repository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ChatService chatService;
+    private final WebSocketAuthHelper webSocketAuthHelper;
 
     @MessageMapping("/chat.send")
-    public void sendMessage(ChatMessage message, SimpMessageHeaderAccessor headerAccessor) {
-        String userId = (String) headerAccessor.getSessionAttributes().get("userId");
-        if (userId == null) throw new IllegalArgumentException("User not authenticated");
+    public void sendMessage(
+            ChatMessage message,
+            SimpMessageHeaderAccessor headerAccessor) {
 
-        message.setSenderId(UUID.fromString(userId));
-        message.setTimestamp(Instant.now());
-
-        ChatMessage saved = repository.save(message);
-
-        messagingTemplate.convertAndSend(
-                "/topic/appointment." + saved.getAppointmentId(),
-                saved
-        );
+        UUID senderId = webSocketAuthHelper.extractUserId(headerAccessor);
+        chatService.saveAndBroadcast(message, senderId);
     }
 
-
     @GetMapping("/api/communication/appointments/{id}/messages")
-    public List<ChatMessage> getMessages(@PathVariable Long id) {
-        return repository.findByAppointmentIdOrderByTimestampAsc(id);
+    public ResponseEntity<List<ChatMessage>> getMessages(@PathVariable Long id) {
+        return ResponseEntity.ok(chatService.getMessages(id));
     }
 }

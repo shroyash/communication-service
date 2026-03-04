@@ -2,6 +2,7 @@ package com.example.demo.util;
 
 import io.jsonwebtoken.*;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Component;
 import org.springframework.util.FileCopyUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -10,8 +11,8 @@ import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
+@Component
 public class JwtUtil {
-
     private final PublicKey publicKey;
 
     public JwtUtil() {
@@ -39,11 +40,8 @@ public class JwtUtil {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-
-            // FIX: extract "id" claim, not subject
             Object id = claims.get("id");
             return id != null ? id.toString() : null;
-
         } catch (JwtException e) {
             return null;
         }
@@ -58,4 +56,3 @@ public class JwtUtil {
         }
     }
 }
-
