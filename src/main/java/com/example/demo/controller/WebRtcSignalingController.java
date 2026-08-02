@@ -44,14 +44,22 @@ public class WebRtcSignalingController {
         }
     }
 
-    // REST endpoint — give frontend the STUN/TURN config
     @GetMapping("/api/communication/webrtc/ice-servers")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Map<String, Object>>> getIceServers() {
         List<Map<String, Object>> iceServers = List.of(
-                Map.of("urls", "stun:stun.l.google.com:19302"),       // free Google STUN
-                Map.of("urls", "stun:stun1.l.google.com:19302")       // backup STUN
-                // Add TURN server here when you have one for production
+                Map.of("urls", "stun:stun.l.google.com:19302"),
+                Map.of("urls", "stun:stun1.l.google.com:19302"),
+                Map.of(
+                        "urls", "turn:openrelay.metered.ca:80",
+                        "username", "openrelayproject",
+                        "credential", "openrelayproject"
+                ),
+                Map.of(
+                        "urls", "turn:openrelay.metered.ca:443",
+                        "username", "openrelayproject",
+                        "credential", "openrelayproject"
+                )
         );
         return ResponseEntity.ok(iceServers);
     }

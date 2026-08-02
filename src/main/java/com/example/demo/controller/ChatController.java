@@ -1,11 +1,13 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.ChatMessageDto;
 import com.example.demo.helper.WebSocketAuthHelper;
 import com.example.demo.model.ChatMessage;
 import com.example.demo.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +23,11 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(
-            ChatMessage message,
-            SimpMessageHeaderAccessor headerAccessor) {
-
+            @Payload ChatMessageDto dto,
+            SimpMessageHeaderAccessor headerAccessor
+    ) {
         UUID senderId = webSocketAuthHelper.extractUserId(headerAccessor);
-        chatService.saveAndBroadcast(message, senderId);
+        chatService.saveAndBroadcast(dto, senderId);
     }
 
     @GetMapping("/api/communication/appointments/{id}/messages")

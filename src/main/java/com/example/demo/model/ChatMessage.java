@@ -32,6 +32,9 @@ public class ChatMessage {
     @Column(columnDefinition = "uuid")
     private UUID receiverId;
 
+    @Column(name = "sender_name")
+    private String senderName;
+
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
